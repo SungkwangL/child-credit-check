@@ -1,0 +1,97 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>자녀장려금 신청 자격 확인</title>
+</head>
+<body>
+  <h1>자녀장려금 신청 자격 확인하기</h1>
+  <p>정기 자녀장려금은 저소득 가구의 자녀 양육을 지원하기 위한 제도로, 일정 요건을 충족하는 경우 매년 5월 신청할 수 있습니다.</p>
+
+  <h2>1단계: 신청 조건 확인</h2>
+  <form id="eligibilityForm">
+    <label>연령(만): <input type="number" id="age" required></label><br>
+    <label>부양 자녀 수(18세 미만): <input type="number" id="children" required></label><br>
+    <label>배우자 있음: <input type="checkbox" id="spouse" onchange="toggleSpouseIncome()"></label><br>
+    <div id="spouseIncomeBox" style="display:none">
+      <label>배우자 연소득 (만원): <input type="number" id="spouseIncome"></label><br>
+    </div>
+    <label>본인 연소득 (만원): <input type="number" id="income" required></label><br>
+    <label>2024년 재산 (만원): <input type="number" id="asset" required></label><br>
+    <button type="button" onclick="checkEligibility()">자격 확인</button>
+  </form>
+
+  <h2 id="resultTitle" style="display:none">결과</h2>
+  <div id="result" style="margin-top: 10px;"></div>
+
+  <script>
+    function toggleSpouseIncome() {
+      const spouseChecked = document.getElementById('spouse').checked;
+      document.getElementById('spouseIncomeBox').style.display = spouseChecked ? 'block' : 'none';
+    }
+
+    function checkEligibility() {
+      const age = parseInt(document.getElementById('age').value);
+      const children = parseInt(document.getElementById('children').value);
+      const income = parseInt(document.getElementById('income').value);
+      const asset = parseInt(document.getElementById('asset').value);
+      const isMarried = document.getElementById('spouse').checked;
+      const spouseIncome = isMarried ? parseInt(document.getElementById('spouseIncome').value) : 0;
+
+      if (!age || !children || !income || !asset || (isMarried && !spouseIncome)) {
+        alert('모든 필수 항목을 입력해 주세요.');
+        return;
+      }
+
+      const totalIncome = income + spouseIncome;
+
+      let householdType = '단독가구';
+      let resultText = '';
+      let baseAmount = 0;
+
+      if (children < 1) {
+        resultText = '자녀가 없으면 자녀장려금 대상이 아닙니다.';
+      } else if (asset > 20000) {
+        resultText = '재산이 2억원을 초과하여 신청할 수 없습니다.';
+      } else {
+        if (children === 1) baseAmount = 100;
+        else if (children === 2) baseAmount = 200;
+        else baseAmount = 300;
+
+        const minAmount = baseAmount / 2;
+        let maxIncomeLimit = 7000;
+        let minIncome = 0;
+
+        if (isMarried) {
+          if (spouseIncome >= 300) {
+            householdType = '맞벌이';
+            minIncome = 2500;
+          } else {
+            householdType = '홑벌이';
+            minIncome = 2100;
+          }
+        } else {
+          householdType = '단독가구';
+          resultText = '단독가구는 자녀장려금 대상이 아닙니다.';
+        }
+
+        if (householdType !== '단독가구') {
+          if (totalIncome <= minIncome) {
+            resultText = `✅ 신청 가능합니다! 지급액: <b>${baseAmount}만원</b> (총소득: ${totalIncome}만원, 가구유형: ${householdType})`;
+          } else if (totalIncome > maxIncomeLimit) {
+            resultText = '❌ 소득이 7,000만원을 초과하여 신청할 수 없습니다.';
+          } else {
+            const ratio = 1 - ((totalIncome - minIncome) / (maxIncomeLimit - minIncome));
+            const calculated = Math.round((baseAmount - minAmount) * ratio + minAmount);
+            resultText = `✅ 신청 가능합니다! 지급액: <b>${calculated}만원</b> (총소득: ${totalIncome}만원, 가구유형: ${householdType})`;
+          }
+        }
+      }
+
+      document.getElementById('resultTitle').style.display = 'block';
+      document.getElementById('result').innerHTML = resultText;
+    }
+  </script>
+</body>
+</html>
