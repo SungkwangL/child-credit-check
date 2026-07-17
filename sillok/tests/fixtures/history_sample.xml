@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<level1 id="2nd_waa" name="태조">
+  <level2 id="2nd_waa_102" 간지="계유">
+    <level3 id="2nd_waa_10201" 간지="갑자">
+      <level4 id="2nd_waa_10201006">
+        <front>
+          <biblioData>
+            <date>
+              <dateOccured type="서기" date="1393-01-06L0">1393</dateOccured>
+              <dateOccured type="간지">壬子</dateOccured>
+              <dateOccured type="재위연도">2</dateOccured>
+            </date>
+          </biblioData>
+        </front>
+        <level5 id="2nd_waa_10201006_001">
+          <front><biblioData><title><mainTitle>영의정 아무개가 졸하다</mainTitle></title></biblioData></front>
+          <text><content><paragraph>領議政 某 卒. 某者忠臣也.</paragraph></content></text>
+        </level5>
+        <level5 id="2nd_waa_10201006_002">
+          <front><biblioData><title><mainTitle>지진이 있었다</mainTitle></title></biblioData></front>
+          <text><content><paragraph>地震. 京師大震.</paragraph></content></text>
+        </level5>
+      </level4>
+    </level3>
+  </level2>
+</level1>

@@ -1,0 +1,13 @@
+# Raw bulk XML is hundreds of MB — never commit it; reproduce via download.py.
+data/
+out/
+*.db
+*.zip
+
+# checkpoints / caches
+crawl_ckpt.json
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
