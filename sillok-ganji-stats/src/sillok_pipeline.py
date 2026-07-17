@@ -432,6 +432,33 @@ def test_event(con, event: str, level: str, alpha: float = 0.05, n_tests: int = 
     }
 
 
+def report_by_ganji(dbpath: str = "out/sillok.db", event: str = None,
+                    verified_only: bool = False) -> list:
+    """60갑자순(甲子→癸亥) 일진별 기사수 표를 출력한다.
+    event 지정 시 해당 사건만, verified_only=True면 검증 통과 기사만 집계."""
+    con = sqlite3.connect(dbpath)
+    q = "SELECT ganji_idx FROM articles WHERE ganji_idx>=0"
+    params = []
+    if verified_only:
+        q += " AND verified=1"
+    if event:
+        q += " AND event_types LIKE ?"
+        params.append(f"%{event}%")
+    rows = con.execute(q, params).fetchall()
+    con.close()
+    counts = [0] * 60
+    for (idx,) in rows:
+        counts[idx] += 1
+    total = sum(counts)
+    hdr = f"[{event or '전체'}{' · verified' if verified_only else ''}] 총 {total}건"
+    print(hdr)
+    print(f"{'idx':>3} {'간지':<4} {'한글':<5} {'기사수':>6}")
+    for i in range(60):
+        bar = "▏" * min(counts[i], 60)
+        print(f"{i:>3} {SEXAGENARY[i]:<4} {SEXAGENARY_KO[i]:<5} {counts[i]:>6}  {bar}")
+    return counts
+
+
 def run_all(dbpath: str = "out/sillok.db"):
     con = sqlite3.connect(dbpath)
     try:
@@ -589,6 +616,11 @@ def main(argv=None):
     st = sub.add_parser("stats", help="stage 5: 카이제곱 검정")
     st.add_argument("--db", default="out/sillok.db")
 
+    rp = sub.add_parser("report", help="60갑자순 일진별 기사수 표")
+    rp.add_argument("--db", default="out/sillok.db")
+    rp.add_argument("--event", default=None, help="사건유형 필터(붕어/졸기/처형/재변/즉위/반정)")
+    rp.add_argument("--verified-only", action="store_true")
+
     args = p.parse_args(argv)
 
     if args.cmd == "selfcheck":
@@ -617,6 +649,9 @@ def main(argv=None):
         return 0
     if args.cmd == "stats":
         run_all(args.db)
+        return 0
+    if args.cmd == "report":
+        report_by_ganji(args.db, event=args.event, verified_only=args.verified_only)
         return 0
     return 1
 
