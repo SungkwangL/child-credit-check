@@ -1,0 +1,45 @@
+{
+  "project": "sillok-ganji-stats",
+  "description": "실록 일진 전수 추출 & 60간지 카이제곱 검정 진행 상태",
+  "stage_gates": {
+    "1_download": "pending",
+    "2_probe": "pending",
+    "3_parse": "blocked-by:2_probe",
+    "4_verify": "blocked-by:3_parse",
+    "5_stats": "blocked-by:4_verify"
+  },
+  "gate_rule": "프로브(2단계) 통과 전 전수 파싱(3단계) 금지. parse 커맨드가 게이트 미통과 시 실행 거부.",
+  "sources": {
+    "15053647": {"range": "태조~철종", "page": "https://www.data.go.kr/data/15053647/fileData.do", "status": "not-downloaded"},
+    "15053646": {"range": "고종·순종", "page": "https://www.data.go.kr/data/15053646/fileData.do", "status": "not-downloaded"}
+  },
+  "kings": [
+    {"code": "a", "king": "태조", "provisional": false, "parsed": null, "articles": null, "verified": null},
+    {"code": "b", "king": "정종", "provisional": false, "parsed": null, "articles": null, "verified": null},
+    {"code": "c", "king": "태종", "provisional": false, "parsed": null, "articles": null, "verified": null},
+    {"code": "d", "king": "세종", "provisional": false, "parsed": null, "articles": null, "verified": null},
+    {"code": "e", "king": "문종", "provisional": false, "parsed": null, "articles": null, "verified": null},
+    {"code": "f", "king": "단종", "provisional": false, "parsed": null, "articles": null, "verified": null},
+    {"code": "g", "king": "세조", "provisional": false, "parsed": null, "articles": null, "verified": null},
+    {"code": "h", "king": "예종", "provisional": false, "parsed": null, "articles": null, "verified": null},
+    {"code": "i", "king": "성종", "provisional": false, "parsed": null, "articles": null, "verified": null},
+    {"code": "j", "king": "연산군", "provisional": false, "parsed": null, "articles": null, "verified": null},
+    {"code": "k", "king": "중종", "provisional": false, "parsed": null, "articles": null, "verified": null},
+    {"code": "l", "king": "인종", "provisional": false, "parsed": null, "articles": null, "verified": null},
+    {"code": "m", "king": "명종", "provisional": false, "parsed": null, "articles": null, "verified": null},
+    {"code": "n", "king": "선조", "provisional": false, "parsed": null, "articles": null, "verified": null},
+    {"code": "o", "king": "선조수정", "provisional": true, "parsed": null, "articles": null, "verified": null},
+    {"code": "p", "king": "광해군중초", "provisional": true, "parsed": null, "articles": null, "verified": null},
+    {"code": "q", "king": "광해군정초", "provisional": true, "parsed": null, "articles": null, "verified": null},
+    {"code": "r", "king": "인조", "provisional": false, "parsed": null, "articles": null, "verified": null},
+    {"code": "s", "king": "효종", "provisional": false, "parsed": null, "articles": null, "verified": null},
+    {"code": "t", "king": "현종", "provisional": false, "parsed": null, "articles": null, "verified": null},
+    {"code": "u", "king": "현종개수", "provisional": true, "parsed": null, "articles": null, "verified": null},
+    {"code": "v", "king": "숙종", "provisional": false, "parsed": null, "articles": null, "verified": null},
+    {"code": "w", "king": "숙종보궐", "provisional": true, "parsed": null, "articles": null, "verified": null},
+    {"code": "x", "king": "경종", "provisional": false, "parsed": null, "articles": null, "verified": null},
+    {"code": "y", "king": "경종수정", "provisional": true, "parsed": null, "articles": null, "verified": null},
+    {"code": "z", "king": "영조", "provisional": false, "parsed": null, "articles": null, "verified": null}
+  ],
+  "note": "kings[].code 및 provisional=true 항목은 probe 실측으로 확정할 것. articles/verified/parsed는 파싱·검증 단계에서 채워진다."
+}

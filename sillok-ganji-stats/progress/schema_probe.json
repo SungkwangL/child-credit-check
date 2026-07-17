@@ -1,0 +1,11 @@
+{
+  "status": "PLACEHOLDER — probe not yet run",
+  "gate_passed": false,
+  "reason": "빌드 환경의 조직 egress 정책이 www.data.go.kr·sillok.history.go.kr을 차단(403 CONNECT)하여 1단계 다운로드를 실행할 수 없었음. 프로브는 실제 벌크 XML 샘플이 있어야 하므로 미실행.",
+  "how_to_populate": "데이터 접근 가능 환경에서: `scripts/download_data.sh` (SILLOK_BULK_URL 또는 --zip), 이어서 `python src/sillok_pipeline.py probe --dir data`. 실행 시 이 파일이 실측값(level4 id 자리수, dateOccured type, 왕대코드 letters)으로 덮여쓰이고 '간지' type 존재 시 gate_passed=true.",
+  "provisional_items_to_correct_after_probe": [
+    "src/sillok_pipeline.py: _LV4_ID_RE 자리수 (설계서 예시로 1차 교정, 실데이터로 재확인)",
+    "src/sillok_pipeline.py: KING_CODES 중복 실록(선조수정/현종개수/숙종보궐/경종수정) 순서",
+    "src/sillok_pipeline.py: parse_article_html DOM 셀렉터"
+  ]
+}

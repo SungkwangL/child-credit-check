@@ -1,0 +1,15 @@
+# 원본 XML / ZIP (수백 MB) — 절대 커밋 금지, download_data.sh로 재현
+data/*
+!data/.gitkeep
+
+# 산출물 DB (전체·왕대별)
+out/*
+!out/.gitkeep
+
+# 체크포인트 / 캐시
+crawl_ckpt.json
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
