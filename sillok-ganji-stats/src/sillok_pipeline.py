@@ -235,20 +235,23 @@ def probe_bulk_structure(sample_xml: str, max_ids: int = 20) -> dict:
 
     tree = etree.parse(sample_xml, etree.XMLParser(recover=True, huge_tree=True))
     ids, types, id_len_hist = [], set(), Counter()
+    n_level4 = 0
     for lv4 in tree.iter("level4"):
+        n_level4 += 1
         lid = lv4.get("id")
         if lid:
-            clean = lid.replace("2nd_", "")
-            ids.append(lid)
+            clean = lid.replace("2nd_", "")   # id 요소엔 2nd_ 접두가 없음(파일명에만) — no-op 안전장치
+            if len(ids) < max_ids:
+                ids.append(lid)
             tail = clean.split("_", 1)[-1] if "_" in clean else clean
             id_len_hist[len(tail)] += 1
         for d in lv4.findall(".//dateOccured"):
             if d.get("type"):
                 types.add(d.get("type"))
-        if len(ids) >= max_ids:
-            break
     return {
         "file": os.path.basename(sample_xml),
+        "n_level4": n_level4,
+        "has_days": n_level4 > 0,           # 총서(_000)/부록은 level4가 없음
         "sample_level4_ids": ids,
         "id_tail_digit_widths": dict(id_len_hist),
         "dateOccured_types": sorted(types),
@@ -268,13 +271,21 @@ def probe_dir(xml_dir: str, out_path: str = "progress/schema_probe.json",
          for f in files
          if len(os.path.basename(f).split("_")) > 1
          and len(os.path.basename(f).split("_")[1]) >= 2})
+
+    # 게이트: level4(일) 항목이 있는 파일들만 대상으로, 그 전부가 '간지' type을
+    # 가져야 통과. 총서(_000)/부록은 level4가 없으니 게이트 판정에서 제외한다.
+    files_with_days = [p for p in per_file if p["has_days"]]
+    gate_passed = bool(files_with_days) and all(
+        p["has_ganji_type"] for p in files_with_days)
+
     report = {
         "n_files_total": len(files),
         "n_files_probed": len(picks),
+        "n_files_with_days": len(files_with_days),
         "king_code_letters_seen": king_letters,
         "anchor_selfcheck": selfcheck_anchor(),
         "per_file": per_file,
-        "gate_passed": all(p["has_ganji_type"] for p in per_file),
+        "gate_passed": gate_passed,
     }
     os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as fh:

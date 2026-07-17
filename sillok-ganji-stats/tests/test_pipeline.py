@@ -66,25 +66,34 @@ def test_parse_bulk_xml_fixture():
     assert len(arts) == 2
     a0 = arts[0]
     assert (a0.king_code, a0.king) == ("a", "태조")
-    assert (a0.reign_year, a0.month, a0.is_leap, a0.day) == (2, 1, 0, 6)
-    assert a0.ganji_raw == "壬子"          # day pillar, NOT year/month pillar
-    assert a0.ganji_idx == 48
-    assert a0.solar_iso == "1393-01-06L0"
+    assert (a0.reign_year, a0.month, a0.is_leap, a0.day) == (1, 7, 0, 17)
+    assert a0.ganji_raw == "丙申"          # day pillar, NOT year pillar (壬申)
+    assert a0.ganji_idx == 32
+    assert a0.solar_iso == "1392-07-17L0"
+    assert a0.title == "영의정 아무개가 졸하다"  # title/mainTitle, not source/mainTitle
     assert "卒" in a0.body
 
 
-def test_day_pillar_not_confused_with_year_or_month():
+def test_day_pillar_not_confused_with_year_pillar():
     pytest.importorskip("lxml")
     arts = sp.parse_bulk_xml(FIXTURE)
-    assert all(a.ganji_raw == "壬子" for a in arts)  # never 계유/갑자
+    assert all(a.ganji_raw == "丙申" for a in arts)  # never the 壬申 year pillar
 
 
 def test_probe_reports_ganji_type():
     pytest.importorskip("lxml")
     report = sp.probe_bulk_structure(FIXTURE)
     assert report["has_ganji_type"] is True
+    assert report["has_days"] is True
     assert "서기" in report["dateOccured_types"]
-    assert report["sample_level4_ids"] == ["2nd_waa_10201006"]
+    assert report["sample_level4_ids"] == ["waa_10107017"]
+
+
+def test_verify_real_historical_date():
+    # 태조 1년 7월 17일(음력) 원문 간지 丙申 — JDN·라이브러리 모두 일치해야 함
+    pytest.importorskip("korean_lunar_calendar")
+    v, calc, iso = sp.verify_article(1392, 7, 17, 0, "丙申")
+    assert v == 1 and calc == "丙申" and iso == "1392-08-13"
 
 
 # --------------------------- 검증 게이트 (라이브러리 필요) ---------------------------
