@@ -618,6 +618,11 @@ table.cyc th.rowh{font-family:var(--serif);font-size:.78rem;padding-right:8px;te
 .gloss dt{font-weight:700;white-space:nowrap}
 .gloss dt .h{color:var(--ink-soft);font-family:var(--serif);font-weight:400;font-size:.85rem;margin-left:4px}
 .gloss dd{margin:0;color:var(--ink-soft);font-size:.9rem}
+.trait{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--gold);
+  border-radius:3px;margin:0 0 16px;padding:2px 16px}
+.trait summary{cursor:pointer;font-family:var(--serif);font-size:1.02rem;padding:10px 0;color:var(--ink)}
+.trait summary::marker{color:var(--gold)}
+.trait p{margin:0 0 14px;color:var(--ink-soft);font-size:.92rem;line-height:1.8;text-align:justify}
 @media (max-width:520px){.gloss dl{grid-template-columns:1fr}.gloss dd{margin:0 0 4px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -646,6 +651,7 @@ table.cyc th.rowh{font-family:var(--serif);font-size:.78rem;padding-right:8px;te
 </div>
 <script>
 const DATA = __DATA__;
+const TRAITS = __TRAITS__;
 const STEM="甲乙丙丁戊己庚辛壬癸".split(""), BR="子丑寅卯辰巳午未申酉戌亥".split("");
 const STEMK="갑을병정무기경신임계".split(""), BRK="자축인묘진사오미신유술해".split("");
 const HAN=i=>STEM[i%10]+BR[i%12], KO=i=>STEMK[i%10]+BRK[i%12];
@@ -690,6 +696,8 @@ function render(){
   let h=`<div class="phead"><span class="ph-han">${HAN(sel)}</span>
     <span class="ph-ko">${KO(sel)} · idx ${sel}</span>
     <span class="stat">기사 <b>${recs.length}</b>건 · <b>${days}</b>일 · 전체의 <b>${(recs.length/total*100).toFixed(2)}</b>% <span style="opacity:.6">(균등기대 1.67%)</span></span></div>`;
+  const tr=TRAITS[sel];
+  if(tr) h+=`<details class="trait" open><summary>${HAN(sel)}(${KO(sel)}) 특성 · 명리학</summary><p>${tr}</p></details>`;
   h+='<div class="evrow">';
   h+=`<button class="chip" aria-pressed="${evFilter.size===0}" data-ev="__all">전체 ${recs.length}</button>`;
   allEvents.forEach(e=>{ if(evc[e]) h+=`<button class="chip" aria-pressed="${evFilter.has(e)}" data-ev="${e}">${e} ${evc[e]}</button>`; });
@@ -712,6 +720,33 @@ buildGrid();
 </script>"""
 
 
+def load_ganji_traits(path: str = "reference/ganji_traits.md") -> dict:
+    """60간지 특성 md를 파싱해 {ganji_idx: 설명문} 으로 반환.
+
+    섹션 형식: '## N. 이름(漢字)' 헤더 + 이어지는 문단. 헤더 괄호 안 한자를
+    간지 인덱스로 변환한다. 파일이 없으면 빈 dict.
+    """
+    if not os.path.exists(path):
+        alt = os.path.join(os.path.dirname(__file__), "..", "reference",
+                           "ganji_traits.md")
+        path = alt if os.path.exists(alt) else path
+    if not os.path.exists(path):
+        return {}
+    txt = open(path, encoding="utf-8").read()
+    hdr = re.compile(r"^##\s*\d+\.\s*[가-힣]+\(([^)]+)\)\s*$", re.M)
+    ms = list(hdr.finditer(txt))
+    traits = {}
+    for i, m in enumerate(ms):
+        hanja = m.group(1).strip()
+        start = m.end()
+        end = ms[i + 1].start() if i + 1 < len(ms) else len(txt)
+        body = re.split(r"\n#\s|\n---", txt[start:end])[0].strip()
+        idx = sexa_index(hanja)
+        if idx >= 0 and body:
+            traits[str(idx)] = body
+    return traits
+
+
 def _articles_for_html(dbpath: str, verified_only: bool = False):
     con = sqlite3.connect(dbpath)
     q = ("SELECT ganji_idx, king, reign_year, month, is_leap, day, solar_iso, "
@@ -726,17 +761,22 @@ def _articles_for_html(dbpath: str, verified_only: bool = False):
             for r in rows]
 
 
-def build_html_inner(data: list, subtitle: str) -> str:
+def build_html_inner(data: list, subtitle: str, traits: dict = None) -> str:
     return (_HTML_INNER
             .replace("__DATA__", json.dumps(data, ensure_ascii=False))
+            .replace("__TRAITS__", json.dumps(traits or {}, ensure_ascii=False))
             .replace("__SUBTITLE__", subtitle))
 
 
 def generate_html(dbpath: str = "out/sillok.db", out: str = "out/sillok_ganji.html",
-                  verified_only: bool = False) -> str:
+                  verified_only: bool = False,
+                  traits_path: str = "reference/ganji_traits.md") -> str:
     data = _articles_for_html(dbpath, verified_only)
+    traits = load_ganji_traits(traits_path)
     subtitle = f"기사 {len(data):,}건" + (" · 검증통과분" if verified_only else "")
-    inner = build_html_inner(data, subtitle)
+    if traits:
+        subtitle += f" · 간지 특성 {len(traits)}종"
+    inner = build_html_inner(data, subtitle, traits)
     doc = ('<!doctype html><html lang="ko"><head><meta charset="utf-8">'
            '<meta name="viewport" content="width=device-width,initial-scale=1">'
            '<title>실록 일진 탐색기</title>'
