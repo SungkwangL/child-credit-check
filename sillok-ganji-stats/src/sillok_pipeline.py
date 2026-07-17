@@ -610,6 +610,15 @@ table.cyc th.rowh{font-family:var(--serif);font-size:.78rem;padding-right:8px;te
 .rec::before{content:"·";position:absolute;left:2px;color:var(--celadon)}
 .tag{font-size:.68rem;color:#fff;background:var(--seal);border-radius:3px;padding:1px 6px;margin-left:6px;white-space:nowrap}
 .empty{color:var(--ink-soft);padding:30px 0;text-align:center;font-style:italic}
+.gloss{max-width:1040px;margin:0 auto 22px;background:var(--card);border:1px solid var(--line);
+  border-radius:4px;padding:4px 16px}
+.gloss summary{cursor:pointer;font-family:var(--serif);font-size:1rem;padding:8px 0;color:var(--ink)}
+.gloss summary::marker{color:var(--seal)}
+.gloss dl{margin:6px 0 12px;display:grid;grid-template-columns:auto 1fr;gap:6px 14px}
+.gloss dt{font-weight:700;white-space:nowrap}
+.gloss dt .h{color:var(--ink-soft);font-family:var(--serif);font-weight:400;font-size:.85rem;margin-left:4px}
+.gloss dd{margin:0;color:var(--ink-soft);font-size:.9rem}
+@media (max-width:520px){.gloss dl{grid-template-columns:1fr}.gloss dd{margin:0 0 4px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 <div class="wrap">
@@ -617,6 +626,17 @@ table.cyc th.rowh{font-family:var(--serif);font-size:.78rem;padding-right:8px;te
     <h1 class="title">실록 일진(日辰) <span class="seal">탐색기</span></h1>
     <p class="sub">__SUBTITLE__ · 육십갑자표에서 간지를 고르면 그 일진의 모든 날과 기록이 펼쳐집니다. 칸의 진하기는 기사 수.</p>
   </header>
+  <details class="gloss">
+    <summary>사건 태그 뜻 (참조)</summary>
+    <dl>
+      <dt>붕어<span class="h">崩御</span></dt><dd>임금·왕비의 죽음(승하昇遐). 국왕급 사망.</dd>
+      <dt>졸기<span class="h">卒記</span></dt><dd>신하가 죽었을 때 그 생애·인물평을 적은 기록("○○의 졸기").</dd>
+      <dt>처형<span class="h">處刑</span></dt><dd>사형 집행. 사사(賜死·사약)·복주(伏誅)·참형(斬)·효수(梟首)·능지처사.</dd>
+      <dt>재변<span class="h">災變</span></dt><dd>천재지변·이상현상. 지진·일식·월식·혜성·천둥(뇌진)·우박. 하늘의 경고로 여겨 기록.</dd>
+      <dt>즉위<span class="h">卽位</span></dt><dd>임금이 왕위에 오름(선위·양위 포함).</dd>
+      <dt>반정<span class="h">反正</span></dt><dd>신하가 임금을 폐하고 새 임금을 세운 정변(중종·인조반정). 폐위·모반·정난.</dd>
+    </dl>
+  </details>
   <section class="grid-wrap">
     <p class="grid-cap"><span>六十甲子 <small>행 = 순(旬) · 열 = 천간(天干) · 진하기 = 기사 수</small></span>
       <small id="maxnote"></small></p>
