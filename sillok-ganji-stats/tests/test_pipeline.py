@@ -45,12 +45,17 @@ def test_selfcheck_arithmetic():
 
 
 # --------------------------- 사건분류 ---------------------------
-def test_classify():
-    assert sp.classify("영의정 아무개가 졸하다", "領議政 某 卒") == ["졸기"]
-    assert "재변" in sp.classify("지진이 있었다", "地震")
-    out = sp.classify("반정으로 즉위하다", "反正 卽位")
+def test_classify_title_based():
+    # 제목(국역) 기반. 한문 본문은 무시(오탐 방지).
+    assert sp.classify("영의정 아무개가 졸하다") == ["졸기"]
+    assert "재변" in sp.classify("지진이 있었다")
+    out = sp.classify("반정으로 즉위하다")
     assert "반정" in out and "즉위" in out
-    assert sp.classify("경연을 열다", "經筵") == []
+    assert sp.classify("경연을 열다") == []
+    # 실제 태조 즉위 제목 — 붕어/처형 오탐 없이 즉위만
+    assert sp.classify("태조가 백관의 추대를 받아 수창궁에서 왕위에 오르다") == ["즉위"]
+    # 본문에 卒/崩 이 있어도 제목만 보므로 무시
+    assert sp.classify("경연을 열다", "領議政 卒. 上崩.") == []
 
 
 # --------------------------- 파서 ---------------------------
@@ -94,6 +99,14 @@ def test_verify_real_historical_date():
     pytest.importorskip("korean_lunar_calendar")
     v, calc, iso = sp.verify_article(1392, 7, 17, 0, "丙申")
     assert v == 1 and calc == "丙申" and iso == "1392-08-13"
+
+
+def test_verify_leap_month_date():
+    # 윤달(태조 1년 윤12월 4일=庚辰): KLC가 문자열 끝에 ' (閏月)'을 붙이는데도
+    # 일주 추출이 견고해야 함(회귀 방지).
+    pytest.importorskip("korean_lunar_calendar")
+    v, calc, _ = sp.verify_article(1392, 12, 4, 1, "庚辰")
+    assert v == 1 and calc == "庚辰"
 
 
 # --------------------------- 검증 게이트 (라이브러리 필요) ---------------------------

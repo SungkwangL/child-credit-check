@@ -87,21 +87,28 @@ class Article:
 # ---------------------------------------------------------------------------
 # 사건유형 분류
 # ---------------------------------------------------------------------------
+# 제목 기반 분류 (방법 A). 국역 제목(mainTitle)은 큐레이션된 사건 요약이라
+# 신뢰 신호가 크다. 한문 본문 매칭은 崩/薨/卒/誅 등이 문맥상 섞여 오탐이 심하므로
+# 사용하지 않는다(예: "태조가 …왕위에 오르다"가 본문 때문에 붕어/처형으로 오분류).
+# 어휘는 태조1년 실제 제목 187개로 검증(즉위/졸기/재변 정확 매칭, 오탐 0).
+# ⚠ 재변은 '천둥/번개'(뇌진)가 빈번해 재변 표본을 지배함 — 필요시 천둥을 분리 검토.
 EVENT_LEXICON = {
-    "붕어": ["훙", "薨", "昇遐", "승하", "崩", "붕어", "禮陟", "훙서", "薨逝"],
-    "졸기": ["卒", "졸하", "졸기"],
-    "처형": ["伏誅", "복주", "賜死", "사사", "斬", "참형", "梟首", "효수",
-             "轘裂", "환열", "誅", "능지", "처참"],
-    "재변": ["日食", "日蝕", "일식", "月食", "월식", "地震", "지진", "地動",
-             "彗星", "혜성", "客星", "객성", "星變", "雷震", "벼락"],
-    "즉위": ["卽位", "즉위", "禪位", "선위", "內禪", "내선", "受禪"],
-    "반정": ["反正", "반정", "謀反", "모반", "靖難", "정난", "廢位", "폐위"],
+    "붕어": ["승하", "훙하다", "훙서", "붕어", "예척"],
+    "졸기": ["졸기", "졸하다"],
+    "처형": ["처형", "사사되", "사사하", "사약을 내리", "복주", "참형", "효수",
+             "능지처사", "처참", "주살", "참하다"],
+    "재변": ["지진", "지동", "일식", "월식", "혜성", "객성", "성변",
+             "천둥", "우레", "벼락", "번개", "우박"],
+    "즉위": ["즉위", "왕위에 오르", "보위에 오르", "대위에 오르",
+             "선위", "양위", "내선", "수선"],
+    "반정": ["반정", "폐위", "폐하고", "폐하여", "정난", "모반"],
 }
 
 
 def classify(title: str, body: str = "") -> list[str]:
-    text = (title or "") + " " + (body or "")
-    return [ev for ev, kws in EVENT_LEXICON.items() if any(k in text for k in kws)]
+    """제목(국역 mainTitle) 기반 사건유형 분류. body는 API 호환용이며 기본 미사용."""
+    t = title or ""
+    return [ev for ev, kws in EVENT_LEXICON.items() if any(k in t for k in kws)]
 
 
 # ---------------------------------------------------------------------------
@@ -127,6 +134,15 @@ def ganji_for_solar(y: int, m: int, d: int) -> str:
     return SEXAGENARY[ganji_from_jdn(jdn_from_gregorian(y, m, d), ANCHOR_JDN, ANCHOR_IDX)]
 
 
+def _klc_day_pillar(cal) -> str:
+    """korean_lunar_calendar의 일주(day pillar) 2자를 견고하게 추출.
+    윤달이면 문자열 끝에 ' (閏月)'이 붙어 split()[-1]가 깨지므로, '日'로 끝나는
+    토큰을 찾아 사용한다."""
+    tokens = cal.getChineseGapJaString().split()
+    day_tok = next((t for t in tokens if t.endswith("日")), "")
+    return day_tok[:-1]
+
+
 def selfcheck_anchor() -> dict:
     """앵커를 런타임에 재확인: 산술 + (설치 시) korean_lunar_calendar 독립 교차검증."""
     result = {
@@ -142,7 +158,7 @@ def selfcheck_anchor() -> dict:
 
         cal = KoreanLunarCalendar()
         cal.setSolarDate(1900, 1, 1)
-        lib_day = cal.getChineseGapJaString().split()[-1][:-1]
+        lib_day = _klc_day_pillar(cal)
         result["library_1900_01_01"] = lib_day
         result["library_ok"] = (lib_day == "甲戌")
     except Exception as exc:
@@ -160,7 +176,7 @@ def verify_article(lunar_y: int, lunar_m: int, lunar_d: int, is_leap, ganji_raw:
     iso = cal.SolarIsoFormat()
     y, m, d = map(int, iso.split("-"))
     calc = ganji_for_solar(y, m, d)
-    lib_gapja = cal.getChineseGapJaString().split()[-1][:-1]
+    lib_gapja = _klc_day_pillar(cal)
     match = (calc == ganji_raw) and (lib_gapja == ganji_raw)
     return (1 if match else 0), calc, iso
 
@@ -334,7 +350,7 @@ def run_bulk(xml_dir: str, dbpath: str = "out/sillok.db") -> int:
     for i, f in enumerate(files):
         arts = parse_bulk_xml(f)
         for a in arts:
-            a.event_types = ",".join(classify(a.title, a.body))
+            a.event_types = ",".join(classify(a.title))   # 제목 기반 (방법 A)
         save(con, arts)
         total += len(arts)
         print(f"[{i + 1}/{len(files)}] {os.path.basename(f)} -> "
