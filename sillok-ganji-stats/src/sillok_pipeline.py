@@ -459,6 +459,274 @@ def report_by_ganji(dbpath: str = "out/sillok.db", event: str = None,
     return counts
 
 
+def digest_day(dbpath: str = "out/sillok.db", date: str = None,
+               ganji: str = None, limit: int = 60) -> None:
+    """특정 날짜(들)의 기록을 요약(제목 목록)으로 출력한다.
+
+    --date 1392-07-17 : 해당일(음력, 서기표기)의 모든 기사 제목
+    --ganji 병신/丙申  : 그 일진(일간지)에 해당하는 모든 날의 기사
+    """
+    con = sqlite3.connect(dbpath)
+    q = ("SELECT king, reign_year, month, is_leap, day, ganji_raw, ganji_idx, "
+         "solar_iso, title, event_types FROM articles WHERE 1=1")
+    params = []
+    if date:
+        q += " AND solar_iso LIKE ?"
+        params.append(f"{date}%")
+    if ganji:
+        q += " AND ganji_idx=?"
+        params.append(sexa_index(ganji))
+    q += " ORDER BY solar_iso, art_id"
+    rows = con.execute(q, params).fetchall()
+    con.close()
+
+    from itertools import groupby
+    keyf = lambda r: (r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7])
+    n_days = 0
+    for k, grp in groupby(rows, key=keyf):
+        n_days += 1
+        if n_days > limit:
+            print(f"... (이하 생략, --limit로 조정)")
+            break
+        king, ry, mo, leap, dy, graw, gidx, iso = k
+        gko = SEXAGENARY_KO[gidx] if gidx is not None and gidx >= 0 else ""
+        lst = list(grp)
+        print(f"\n■ {king} {ry}년 {mo}월{'(윤)' if leap else ''} {dy}일  "
+              f"[{graw} {gko}]  서기표기 {iso[:10]}  기사 {len(lst)}건")
+        for r in lst:
+            ev = f"  <{r[9]}>" if r[9] else ""
+            print(f"   - {r[8]}{ev}")
+    if n_days == 0:
+        print("해당 조건의 기사가 없습니다.")
+
+
+def summarize_ganji(dbpath: str = "out/sillok.db", ganji: str = "甲子",
+                    sample: int = 12) -> dict:
+    """특정 간지(일진)의 '의미'를 추론하기 위한 요약.
+
+    그 간지에 해당하는 모든 날의: 총 기사수·일수, 사건유형 분포(관측/전체대비),
+    그리고 대표 기사 제목 표본을 출력한다. 통계적 유의성은 stats로 확인할 것.
+    """
+    idx = sexa_index(ganji)
+    con = sqlite3.connect(dbpath)
+    total_arts = con.execute("SELECT COUNT(*) FROM articles WHERE ganji_idx>=0").fetchone()[0]
+    rows = con.execute(
+        "SELECT solar_iso, title, event_types FROM articles WHERE ganji_idx=?",
+        (idx,)).fetchall()
+    con.close()
+    n = len(rows)
+    days = len({r[0][:10] for r in rows if r[0]})
+    ev_counts = {}
+    for _, _, evs in rows:
+        for e in (evs.split(",") if evs else []):
+            if e:
+                ev_counts[e] = ev_counts.get(e, 0) + 1
+
+    exp_share = n / total_arts if total_arts else 0
+    print(f"■ 간지 {SEXAGENARY[idx]}({SEXAGENARY_KO[idx]}), idx {idx}")
+    print(f"   총 기사 {n}건 · {days}일 · 전체({total_arts})의 {exp_share*100:.2f}%")
+    print(f"   (균등 기대: 1/60 = {100/60:.2f}%)  <- 편차 크면 stats로 유의성 확인")
+    if ev_counts:
+        print("   사건유형 분포:")
+        for e, c in sorted(ev_counts.items(), key=lambda x: -x[1]):
+            print(f"      {e}: {c}건 ({c/n*100:.1f}% of 이 간지)")
+    else:
+        print("   (분류된 사건 없음 — 일반 기사)")
+    print(f"   대표 기사 표본(최대 {sample}):")
+    for r in rows[:sample]:
+        ev = f"  <{r[2]}>" if r[2] else ""
+        print(f"      · {r[1]}{ev}")
+    return {"ganji": SEXAGENARY[idx], "n": n, "days": days, "events": ev_counts}
+
+
+_HTML_INNER = """<style>
+:root{
+  --paper:#efeae0; --paper-2:#e7e1d4; --card:#f6f2ea; --ink:#211d19;
+  --ink-soft:#6a6154; --line:#d8d0c0; --seal:#b0362a; --seal-ink:#8f2a20;
+  --celadon:#4f7267; --gold:#9a7b3f;
+  --serif:"Nanum Myeongjo","Noto Serif KR",Georgia,"Apple SD Gothic Neo",serif;
+  --sans:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root{
+  --paper:#16130f; --paper-2:#1d1811; --card:#201a13; --ink:#ece5d7;
+  --ink-soft:#a99f8d; --line:#352d22; --seal:#d9584a; --seal-ink:#e2705f;
+  --celadon:#82a899; --gold:#c2a15f;
+}}
+:root[data-theme="dark"]{
+  --paper:#16130f; --paper-2:#1d1811; --card:#201a13; --ink:#ece5d7;
+  --ink-soft:#a99f8d; --line:#352d22; --seal:#d9584a; --seal-ink:#e2705f;
+  --celadon:#82a899; --gold:#c2a15f;
+}
+:root[data-theme="light"]{
+  --paper:#efeae0; --paper-2:#e7e1d4; --card:#f6f2ea; --ink:#211d19;
+  --ink-soft:#6a6154; --line:#d8d0c0; --seal:#b0362a; --seal-ink:#8f2a20;
+  --celadon:#4f7267; --gold:#9a7b3f;
+}
+*{box-sizing:border-box}
+.wrap{background:var(--paper);color:var(--ink);font-family:var(--sans);
+  line-height:1.6;padding:clamp(16px,4vw,40px);min-height:100vh}
+.head{max-width:1040px;margin:0 auto 26px;border-bottom:2px solid var(--ink);padding-bottom:16px}
+.title{font-family:var(--serif);font-weight:700;font-size:clamp(1.7rem,4vw,2.6rem);
+  margin:0;letter-spacing:.02em;text-wrap:balance}
+.sub{color:var(--ink-soft);margin:.5rem 0 0;font-size:.95rem}
+.seal{color:var(--seal)}
+.grid-wrap{max-width:1040px;margin:0 auto 26px;background:var(--card);
+  border:1px solid var(--line);border-radius:4px;padding:clamp(12px,2.5vw,22px);overflow-x:auto}
+.grid-cap{font-family:var(--serif);font-size:1.05rem;margin:0 0 12px;display:flex;
+  justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.grid-cap small{color:var(--ink-soft);font-family:var(--sans);font-weight:400}
+table.cyc{border-collapse:collapse;margin:0 auto;font-variant-numeric:tabular-nums}
+table.cyc th{color:var(--ink-soft);font-weight:600;font-size:.72rem;padding:3px 0;text-align:center}
+table.cyc th.rowh{font-family:var(--serif);font-size:.78rem;padding-right:8px;text-align:right;white-space:nowrap}
+.cell{width:clamp(52px,7vw,72px);height:clamp(50px,6.5vw,64px);border:1px solid var(--line);
+  background:var(--paper-2);border-radius:3px;cursor:pointer;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:1px;font-family:var(--sans);color:inherit;
+  transition:transform .08s,box-shadow .12s;padding:2px}
+.cell .han{font-family:var(--serif);font-size:clamp(.95rem,1.6vw,1.15rem);line-height:1}
+.cell .ko{font-size:.62rem;color:var(--ink-soft)}
+.cell .n{font-size:.66rem;font-weight:700}
+.cell:hover{transform:translateY(-2px);box-shadow:0 3px 10px rgba(0,0,0,.14)}
+.cell:focus-visible{outline:2px solid var(--seal);outline-offset:2px}
+.cell.sel{border-color:var(--seal);box-shadow:0 0 0 2px var(--seal) inset}
+.cell.sel .ko,.cell.sel .n{color:var(--seal-ink)}
+.panel{max-width:1040px;margin:0 auto}
+.phead{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:6px}
+.phead .ph-han{font-family:var(--serif);font-size:2rem;font-weight:700}
+.phead .ph-ko{color:var(--ink-soft)}
+.stat{color:var(--ink-soft);font-size:.9rem;font-variant-numeric:tabular-nums}
+.stat b{color:var(--ink);font-weight:700}
+.evrow{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 18px}
+.chip{font-size:.78rem;border:1px solid var(--line);border-radius:999px;padding:3px 10px;
+  color:var(--ink-soft);background:var(--card);cursor:pointer;font-family:var(--sans)}
+.chip[aria-pressed="true"]{background:var(--seal);border-color:var(--seal);color:#fff}
+.day{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--celadon);
+  border-radius:3px;padding:12px 14px;margin:0 0 10px}
+.day.has-ev{border-left-color:var(--seal)}
+.dhead{font-size:.85rem;color:var(--ink-soft);margin-bottom:6px;font-variant-numeric:tabular-nums}
+.dhead b{color:var(--ink);font-family:var(--serif);font-size:1rem}
+.rec{margin:3px 0;padding-left:14px;position:relative}
+.rec::before{content:"·";position:absolute;left:2px;color:var(--celadon)}
+.tag{font-size:.68rem;color:#fff;background:var(--seal);border-radius:3px;padding:1px 6px;margin-left:6px;white-space:nowrap}
+.empty{color:var(--ink-soft);padding:30px 0;text-align:center;font-style:italic}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<div class="wrap">
+  <header class="head">
+    <h1 class="title">실록 일진(日辰) <span class="seal">탐색기</span></h1>
+    <p class="sub">__SUBTITLE__ · 육십갑자표에서 간지를 고르면 그 일진의 모든 날과 기록이 펼쳐집니다. 칸의 진하기는 기사 수.</p>
+  </header>
+  <section class="grid-wrap">
+    <p class="grid-cap"><span>六十甲子 <small>행 = 순(旬) · 열 = 천간(天干) · 진하기 = 기사 수</small></span>
+      <small id="maxnote"></small></p>
+    <div id="gridhost"></div>
+  </section>
+  <section class="panel" id="panel"><p class="empty">위 표에서 간지를 클릭하세요.</p></section>
+</div>
+<script>
+const DATA = __DATA__;
+const STEM="甲乙丙丁戊己庚辛壬癸".split(""), BR="子丑寅卯辰巳午未申酉戌亥".split("");
+const STEMK="갑을병정무기경신임계".split(""), BRK="자축인묘진사오미신유술해".split("");
+const HAN=i=>STEM[i%10]+BR[i%12], KO=i=>STEMK[i%10]+BRK[i%12];
+const counts=Array(60).fill(0); DATA.forEach(a=>{if(a.gi>=0)counts[a.gi]++});
+const maxc=Math.max(1,...counts);
+const allEvents=[...new Set(DATA.flatMap(a=>a.e?a.e.split(","):[]).filter(Boolean))];
+let sel=null, evFilter=new Set();
+
+function cellBg(c){ if(!c) return "var(--paper-2)";
+  const t=Math.pow(c/maxc,.6); return `color-mix(in srgb, var(--seal) ${Math.round(t*72)}%, var(--card))`; }
+
+function buildGrid(){
+  const rows=6, cols=10; let h='<table class="cyc"><thead><tr><th class="rowh"></th>';
+  for(let c=0;c<cols;c++) h+=`<th>${STEM[c]}<br><span style="font-weight:400">${STEMK[c]}</span></th>`;
+  h+='</tr></thead><tbody>';
+  for(let r=0;r<rows;r++){ const first=r*10; h+=`<tr><th class="rowh">${HAN(first)}旬</th>`;
+    for(let c=0;c<cols;c++){ const i=r*10+c; const n=counts[i];
+      h+=`<td style="padding:2px"><button class="cell" data-i="${i}" style="background:${cellBg(n)}"
+        aria-label="${HAN(i)} ${KO(i)} ${n}건">
+        <span class="han">${HAN(i)}</span><span class="ko">${KO(i)}</span><span class="n">${n||""}</span>
+      </button></td>`; }
+    h+='</tr>'; }
+  h+='</tbody></table>';
+  document.getElementById("gridhost").innerHTML=h;
+  document.getElementById("maxnote").textContent="최다 "+maxc+"건";
+  document.querySelectorAll(".cell").forEach(b=>b.onclick=()=>select(+b.dataset.i));
+}
+function select(i){ sel=i; evFilter.clear();
+  document.querySelectorAll(".cell").forEach(b=>b.classList.toggle("sel",+b.dataset.i===i));
+  render();
+}
+function render(){
+  const p=document.getElementById("panel"); if(sel===null)return;
+  let recs=DATA.filter(a=>a.gi===sel);
+  const total=counts.reduce((a,b)=>a+b,0);
+  const evc={}; recs.forEach(a=>(a.e?a.e.split(","):[]).forEach(e=>{if(e)evc[e]=(evc[e]||0)+1}));
+  const days=[...new Set(recs.map(a=>a.iso))].length;
+  let shown = evFilter.size? recs.filter(a=>(a.e?a.e.split(","):[]).some(e=>evFilter.has(e))) : recs;
+  // group by day
+  const byday={}; shown.forEach(a=>{(byday[a.iso]=byday[a.iso]||[]).push(a)});
+  const isos=Object.keys(byday).sort();
+  let h=`<div class="phead"><span class="ph-han">${HAN(sel)}</span>
+    <span class="ph-ko">${KO(sel)} · idx ${sel}</span>
+    <span class="stat">기사 <b>${recs.length}</b>건 · <b>${days}</b>일 · 전체의 <b>${(recs.length/total*100).toFixed(2)}</b>% <span style="opacity:.6">(균등기대 1.67%)</span></span></div>`;
+  h+='<div class="evrow">';
+  h+=`<button class="chip" aria-pressed="${evFilter.size===0}" data-ev="__all">전체 ${recs.length}</button>`;
+  allEvents.forEach(e=>{ if(evc[e]) h+=`<button class="chip" aria-pressed="${evFilter.has(e)}" data-ev="${e}">${e} ${evc[e]}</button>`; });
+  h+='</div>';
+  if(!isos.length){ h+='<p class="empty">해당 기록이 없습니다.</p>'; }
+  isos.forEach(iso=>{ const lst=byday[iso]; const a0=lst[0];
+    const hasEv=lst.some(a=>a.e);
+    h+=`<div class="day${hasEv?' has-ev':''}"><div class="dhead">
+      <b>${a0.k} ${a0.ry}년 ${a0.mo}월${a0.lp?'(윤)':''} ${a0.d}일</b>
+      &nbsp;·&nbsp;서기표기 ${iso} &nbsp;·&nbsp;${lst.length}건</div>`;
+    lst.forEach(a=>{ const tags=(a.e?a.e.split(","):[]).filter(Boolean).map(e=>`<span class="tag">${e}</span>`).join("");
+      h+=`<div class="rec">${a.t||"(제목 없음)"}${tags}</div>`; });
+    h+='</div>'; });
+  p.innerHTML=h;
+  p.querySelectorAll(".chip").forEach(c=>c.onclick=()=>{
+    const e=c.dataset.ev; if(e==="__all")evFilter.clear();
+    else{ evFilter.has(e)?evFilter.delete(e):evFilter.add(e); } render(); });
+}
+buildGrid();
+</script>"""
+
+
+def _articles_for_html(dbpath: str, verified_only: bool = False):
+    con = sqlite3.connect(dbpath)
+    q = ("SELECT ganji_idx, king, reign_year, month, is_leap, day, solar_iso, "
+         "title, event_types FROM articles WHERE ganji_idx>=0")
+    if verified_only:
+        q += " AND verified=1"
+    q += " ORDER BY solar_iso, art_id"
+    rows = con.execute(q).fetchall()
+    con.close()
+    return [{"gi": r[0], "k": r[1], "ry": r[2], "mo": r[3], "lp": r[4],
+             "d": r[5], "iso": (r[6] or "")[:10], "t": r[7], "e": r[8] or ""}
+            for r in rows]
+
+
+def build_html_inner(data: list, subtitle: str) -> str:
+    return (_HTML_INNER
+            .replace("__DATA__", json.dumps(data, ensure_ascii=False))
+            .replace("__SUBTITLE__", subtitle))
+
+
+def generate_html(dbpath: str = "out/sillok.db", out: str = "out/sillok_ganji.html",
+                  verified_only: bool = False) -> str:
+    data = _articles_for_html(dbpath, verified_only)
+    subtitle = f"기사 {len(data):,}건" + (" · 검증통과분" if verified_only else "")
+    inner = build_html_inner(data, subtitle)
+    doc = ('<!doctype html><html lang="ko"><head><meta charset="utf-8">'
+           '<meta name="viewport" content="width=device-width,initial-scale=1">'
+           '<title>실록 일진 탐색기</title>'
+           '<style>html,body{margin:0;padding:0}</style></head><body>'
+           + inner + "</body></html>")
+    os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
+    with open(out, "w", encoding="utf-8") as fh:
+        fh.write(doc)
+    print(f"wrote {out} ({len(data):,} articles, {os.path.getsize(out):,} bytes)")
+    return out
+
+
 def run_all(dbpath: str = "out/sillok.db"):
     con = sqlite3.connect(dbpath)
     try:
@@ -621,6 +889,22 @@ def main(argv=None):
     rp.add_argument("--event", default=None, help="사건유형 필터(붕어/졸기/처형/재변/즉위/반정)")
     rp.add_argument("--verified-only", action="store_true")
 
+    dy = sub.add_parser("day", help="특정 날짜(들)의 기록 요약(제목 목록)")
+    dy.add_argument("--db", default="out/sillok.db")
+    dy.add_argument("--date", default=None, help="서기표기 예: 1450-02-17")
+    dy.add_argument("--ganji", default=None, help="일진 예: 병신 또는 丙申")
+    dy.add_argument("--limit", type=int, default=60, help="출력할 날 수 상한")
+
+    gj = sub.add_parser("ganji", help="특정 간지의 요약(사건분포+표본)으로 의미 추론")
+    gj.add_argument("ganji", help="일진 예: 갑자 또는 甲子")
+    gj.add_argument("--db", default="out/sillok.db")
+    gj.add_argument("--sample", type=int, default=12)
+
+    ht = sub.add_parser("html", help="간지 선택형 인터랙티브 HTML 생성")
+    ht.add_argument("--db", default="out/sillok.db")
+    ht.add_argument("--out", default="out/sillok_ganji.html")
+    ht.add_argument("--verified-only", action="store_true")
+
     args = p.parse_args(argv)
 
     if args.cmd == "selfcheck":
@@ -652,6 +936,15 @@ def main(argv=None):
         return 0
     if args.cmd == "report":
         report_by_ganji(args.db, event=args.event, verified_only=args.verified_only)
+        return 0
+    if args.cmd == "day":
+        digest_day(args.db, date=args.date, ganji=args.ganji, limit=args.limit)
+        return 0
+    if args.cmd == "ganji":
+        summarize_ganji(args.db, ganji=args.ganji, sample=args.sample)
+        return 0
+    if args.cmd == "html":
+        generate_html(args.db, out=args.out, verified_only=args.verified_only)
         return 0
     return 1
 

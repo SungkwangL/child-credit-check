@@ -62,6 +62,20 @@ python src/sillok_pipeline.py verify
 python src/sillok_pipeline.py stats
 ```
 
+## 탐색 도구 (parse 이후)
+
+```
+python src/sillok_pipeline.py report [--event 붕어]      # 60갑자순 일진별 기사수(막대)
+python src/sillok_pipeline.py day --date 1450-02-17      # 특정일 기록 요약(제목 목록)
+python src/sillok_pipeline.py day --ganji 병신           # 특정 일진의 모든 날
+python src/sillok_pipeline.py ganji 갑자                 # 특정 간지 요약(사건분포+표본)
+python src/sillok_pipeline.py html --out out/sillok_ganji.html   # 인터랙티브 HTML
+```
+
+`html`은 육십갑자표(행=순旬, 열=천간)에서 간지를 클릭하면 그 일진의 모든 날·기록이
+펼쳐지는 자립형 HTML을 만든다(칸 진하기=기사 수, 사건유형 필터, 라이트/다크). 데이터가
+내장되므로 서버 없이 브라우저로 바로 열린다.
+
 ## 사건 분류 (방법 A: 제목 기반)
 
 국역 제목(`mainTitle`)만으로 분류한다. 한문 본문 매칭은 崩·薨·卒·誅 등이 문맥상
